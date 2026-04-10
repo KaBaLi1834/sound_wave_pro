@@ -5,12 +5,19 @@
 import { driver, neo4jConnectionSummary } from "./db.js";
 
 const info = neo4jConnectionSummary();
+console.log("Env file:", info.envFile);
 console.log("Trying Neo4j with:", {
   uri: info.uri,
   user: info.user,
   database: info.database,
   passwordSet: info.passwordSet,
+  passwordLength: info.passwordLength,
 });
+if (info.passwordLength > 0 && info.passwordLength < 8) {
+  console.warn(
+    "Password looks very short — Aura passwords are usually longer; check for a truncated .env line (e.g. unquoted #)."
+  );
+}
 
 try {
   await driver.verifyConnectivity();
@@ -42,6 +49,14 @@ Reset database password → copy the new password into NEO4J_PASSWORD.
 
 Also open Aura → Connect / Download connection details — it shows the
 same URI and confirms Username: neo4j.
+
+If passwordLength above does not match the password you pasted from Aura,
+you are editing a different file than server/.env, or the line is broken
+(e.g. # in the password without double quotes: NEO4J_PASSWORD="...#...").
+
+If you ever ran export NEO4J_PASSWORD=... in a terminal, this app now
+loads server/.env with override so the file wins — but restart the shell
+or unset NEO4J_PASSWORD if you still see a wrong passwordLength.
 `);
   }
   process.exit(1);

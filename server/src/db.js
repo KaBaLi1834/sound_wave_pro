@@ -1,7 +1,12 @@
+import { fileURLToPath } from "node:url";
 import neo4j from "neo4j-driver";
 import dotenv from "dotenv";
 
-dotenv.config({ path: new URL("../.env", import.meta.url) });
+// override: true so server/.env wins over stale NEO4J_* exported in your shell
+dotenv.config({
+  path: new URL("../.env", import.meta.url),
+  override: true,
+});
 
 function envTrim(key, fallback) {
   const v = process.env[key];
@@ -31,5 +36,7 @@ export function neo4jConnectionSummary() {
     user,
     database,
     passwordSet: Boolean(password && password.length > 0),
+    passwordLength: password ? password.length : 0,
+    envFile: fileURLToPath(new URL("../.env", import.meta.url)),
   };
 }
