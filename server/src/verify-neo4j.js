@@ -2,7 +2,7 @@
  * Quick check: loads server/.env and tries to connect to Neo4j.
  * Run: cd server && npm run verify-neo4j
  */
-import { driver, neo4jConnectionSummary } from "./db.js";
+import { driver, neo4jConnectionSummary, session } from "./db.js";
 
 const info = neo4jConnectionSummary();
 console.log("Env file:", info.envFile);
@@ -21,10 +21,32 @@ if (info.passwordLength > 0 && info.passwordLength < 8) {
 
 try {
   await driver.verifyConnectivity();
-  console.log("OK: connected and authenticated.");
+  const s = session();
+  try {
+    await s.run("RETURN 1 AS ok");
+  } finally {
+    await s.close();
+  }
+  console.log("OK: connected, authenticated, and database session works.");
   process.exit(0);
 } catch (e) {
   console.error("FAILED:", e.message || e);
+  if (
+    e?.code === "Neo.ClientError.Database.DatabaseNotFound" ||
+    String(e?.message || "").includes("does not exist")
+  ) {
+    console.error(`
+--- Database name ---
+
+The server has no graph/database with the name you configured (often
+NEO4J_DATABASE=neo4j). Some Aura instances only expose a default graph
+under another name.
+
+Fix: remove NEO4J_DATABASE from server/.env so the driver uses the
+server default, or set NEO4J_DATABASE to the exact name from Aura
+(Neo4j Browser: SHOW DATABASES).
+`);
+  }
   if (
     e?.code === "Neo.ClientError.Security.Unauthorized" ||
     String(e?.message || "").includes("Unauthorized")

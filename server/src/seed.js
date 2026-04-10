@@ -86,6 +86,9 @@ async function run() {
   try {
     await s.executeWrite(async (tx) => {
       await tx.run(`MATCH (n) DETACH DELETE n`);
+    });
+    // Neo4j 5+: schema DDL cannot share a transaction with data writes.
+    await s.executeWrite(async (tx) => {
       await tx.run(
         `CREATE CONSTRAINT product_id IF NOT EXISTS FOR (p:Product) REQUIRE p.id IS UNIQUE`,
       );
