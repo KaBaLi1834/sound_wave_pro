@@ -20,6 +20,8 @@ const ALLOWED_ORIGINS = String(
   .split(",")
   .map((s) => trimUrl(s.trim()))
   .filter(Boolean);
+/** First FRONTEND_URL entry — used for OAuth redirects. */
+const FRONTEND_PRIMARY = ALLOWED_ORIGINS[0] || "http://localhost:5173";
 const API_PUBLIC_URL = trimUrl(
   process.env.API_PUBLIC_URL || `http://localhost:${PORT}`,
 );
@@ -219,11 +221,11 @@ if (googleReady) {
   );
   app.get(
     "/api/auth/google/callback",
-    passport.authenticate("google", { session: false, failureRedirect: `${FRONTEND_ORIGIN}/auth/callback?error=google` }),
+    passport.authenticate("google", { session: false, failureRedirect: `${FRONTEND_PRIMARY}/auth/callback?error=google` }),
     (req, res) => {
       const user = req.user;
       const token = signToken(user);
-      res.redirect(`${FRONTEND_ORIGIN}/auth/callback?token=${encodeURIComponent(token)}`);
+      res.redirect(`${FRONTEND_PRIMARY}/auth/callback?token=${encodeURIComponent(token)}`);
     },
   );
 } else {
