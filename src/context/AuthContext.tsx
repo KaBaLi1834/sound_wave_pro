@@ -2,102 +2,129 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
+import { apiFetch, getStoredToken, setStoredToken } from "../api/client";
 
-export type User = {
+export type AuthUser = {
+  id: string;
   email: string;
-  password: string;
   name: string;
 };
 
-const USERS_KEY = "users";
-const CURRENT_USER_KEY = "currentUser";
+const USER_KEY = "soundwave_user";
 
 type AuthContextValue = {
-  user: User | null;
-  login: (email: string, password: string) => boolean;
-  signup: (
+  user: AuthUser | null;
+  ready: boolean;
+  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  register: (
     email: string,
     password: string,
-    confirmPassword: string,
-  ) => { ok: true } | { ok: false; error: string };
+    name: string,
+  ) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
+  setSession: (user: AuthUser, token: string) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function loadUsers(): User[] {
+function loadUser(): AuthUser | null {
   try {
-    const raw = localStorage.getItem(USERS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed as User[];
-  } catch {
-    return [];
-  }
-}
-
-function loadCurrentUser(): User | null {
-  try {
-    const raw = localStorage.getItem(CURRENT_USER_KEY);
+    const raw = localStorage.getItem(USER_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as User;
+    return JSON.parse(raw) as AuthUser;
   } catch {
     return null;
   }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => loadCurrentUser());
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [ready, setReady] = useState(false);
 
-  const login = useCallback((email: string, password: string) => {
-    const users = loadUsers();
-    const found = users.find((u) => u.email === email && u.password === password);
-    if (!found) return false;
-    setUser(found);
-    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(found));
-    return true;
+  useEffect(() => {
+    const t = getStoredToken();
+    const u = loadUser();
+    if (t && u) setUser(u);
+    else {
+      setUser(null);
+      setStoredToken(null);
+      localStorage.removeItem(USER_KEY);
+    }
+    setReady(true);
   }, []);
 
-  const signup = useCallback(
-    (email: string, password: string, confirmPassword: string) => {
-      if (password !== confirmPassword) {
-        return { ok: false as const, error: "Passwords do not match" };
-      }
-      if (password.length < 6) {
-        return {
-          ok: false as const,
-          error: "Password must be at least 6 characters",
-        };
-      }
-      const users = loadUsers();
-      if (users.some((u) => u.email === email)) {
-        return { ok: false as const, error: "Email already registered" };
-      }
-      const newUser: User = {
-        email,
-        password,
-        name: email.split("@")[0],
-      };
-      users.push(newUser);
-      localStorage.setItem(USERS_KEY, JSON.stringify(users));
-      return { ok: true as const };
+  const persist = useCallback((u: AuthUser, token: string) => {
+    setUser(u);
+    setStoredToken(token);
+    localStorage.setItem(USER_KEY, JSON.stringify(u));
+  }, []);
+
+  const setSession = useCallback(
+    (u: AuthUser, token: string) => {
+      persist(u, token);
     },
-    [],
+    [persist],
   );
 
   const logout = useCallback(() => {
     setUser(null);
-    localStorage.removeItem(CURRENT_USER_KEY);
+    setStoredToken(null);
+    localStorage.removeItem(USER_KEY);
   }, []);
 
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const res = await apiFetch("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        token?: string;
+        user?: AuthUser;
+        error?: string;
+      };
+      if (!res.ok) return { ok: false as const, error: data.error || "Login failed" };
+      if (!data.token || !data.user) return { ok: false as const, error: "Invalid response" };
+      persist(data.user, data.token);
+      return { ok: true as const };
+    },
+    [persist],
+  );
+
+  const register = useCallback(
+    async (email: string, password: string, name: string) => {
+      const res = await apiFetch("/api/auth/register", {
+        method: "POST",
+        body: JSON.stringify({ email, password, name }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        token?: string;
+        user?: AuthUser;
+        error?: string;
+      };
+      if (!res.ok) return { ok: false as const, error: data.error || "Sign up failed" };
+      if (!data.token || !data.user) return { ok: false as const, error: "Invalid response" };
+      persist(data.user, data.token);
+      return { ok: true as const };
+    },
+    [persist],
+  );
+
   const value = useMemo(
-    () => ({ user, login, signup, logout }),
-    [user, login, signup, logout],
+    () => ({
+      user,
+      ready,
+      login,
+      register,
+      logout,
+      setSession,
+    }),
+    [user, ready, login, register, logout, setSession],
   );
 
   return (

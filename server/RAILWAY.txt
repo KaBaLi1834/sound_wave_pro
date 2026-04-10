@@ -1,0 +1,21 @@
+Railway (API always on)
+-----------------------
+1. railway.app -> New Project -> Deploy from GitHub -> pick this repo.
+
+2. Settings -> Root Directory: server
+
+3. Variables (same as server/.env):
+   - NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD
+   - JWT_SECRET (long random string)
+   - FRONTEND_URL = your Netlify URL (no trailing slash)
+   - API_PUBLIC_URL = Railway will show a URL like https://xxx.up.railway.app — set this to that base URL (no path, no trailing slash). After first deploy, copy the generated domain.
+   - GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+
+4. Google Cloud Console -> OAuth client -> Authorized redirect URIs ADD:
+   https://YOUR-RAILWAY-DOMAIN.up.railway.app/api/auth/google/callback
+
+5. Deploy. In Railway logs, run seed once (Railway "one-off" command or local):
+   cd server && npm run seed
+   (with NEO4J_* pointing at the same DB)
+
+6. Netlify env: VITE_API_URL = same as API_PUBLIC_URL (Railway URL, no trailing slash). Redeploy frontend.

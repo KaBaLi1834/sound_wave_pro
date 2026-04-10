@@ -1,5 +1,4 @@
 import { formatInr } from "../util/money";
-import type { ProductId } from "../data/products";
 import type { CartItem } from "../context/CartContext";
 
 type Props = {
@@ -7,9 +6,9 @@ type Props = {
   onClose: () => void;
   items: CartItem[];
   subtotal: number;
-  onChangeQty: (id: ProductId, delta: number) => void;
-  onRemove: (id: ProductId) => void;
-  onCheckout: () => void;
+  onChangeQty: (id: string, delta: number) => void;
+  onRemove: (id: string) => void;
+  onCheckout: () => void | Promise<void>;
 };
 
 export function CartModal({
@@ -55,7 +54,7 @@ export function CartModal({
               <div key={item.id} className="cart-row">
                 <div>
                   <div className="cart-title">{item.name}</div>
-                  <div className="cart-meta">{formatInr(item.price)} each</div>
+                  <div className="cart-meta">{formatInr(item.priceInr)} each</div>
                   <div className="qty">
                     <button
                       type="button"
@@ -93,7 +92,7 @@ export function CartModal({
           type="button"
           className="checkout-btn"
           disabled={items.length === 0}
-          onClick={onCheckout}
+          onClick={() => void onCheckout()}
         >
           Proceed to checkout
         </button>

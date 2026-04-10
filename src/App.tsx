@@ -1,28 +1,22 @@
 import { useCallback, useState } from "react";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import "./App.css";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { CartProvider, useCart } from "./context/CartContext";
 import { ThemeProvider } from "./context/ThemeContext";
-import { Header } from "./components/Header";
-import { Hero } from "./components/Hero";
-import { ProductSection } from "./components/ProductSection";
 import { AuthModal } from "./components/AuthModal";
 import { CartModal } from "./components/CartModal";
-import { Footer } from "./components/Footer";
+import { MainLayout } from "./layouts/MainLayout";
+import { AuthCallbackPage } from "./pages/AuthCallbackPage";
+import { HomePage } from "./pages/HomePage";
+import { ProductPage } from "./pages/ProductPage";
+import { ShopPage } from "./pages/ShopPage";
 import { formatInr } from "./util/money";
-import type { ProductId } from "./data/products";
 
 function AppShell() {
-  const { user, logout } = useAuth();
-  const {
-    addToCart,
-    items,
-    subtotal,
-    updateQuantity,
-    removeFromCart,
-    checkout,
-    clearCart,
-  } = useCart();
+  const { user } = useAuth();
+  const { items, subtotal, updateQuantity, removeFromCart, checkout } =
+    useCart();
 
   const [authOpen, setAuthOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
@@ -31,22 +25,17 @@ function AppShell() {
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
-    window.setTimeout(() => setToast(null), 2200);
+    window.setTimeout(() => setToast(null), 2400);
   }, []);
 
-  const scrollToProducts = useCallback(() => {
-    document.getElementById("products")?.scrollIntoView({ behavior: "smooth" });
-  }, []);
+  const onAddedToCart = useCallback(() => {
+    showToast("Added to cart.");
+  }, [showToast]);
 
   const openAuth = useCallback(() => {
     setAuthGateMessage(null);
     setAuthOpen(true);
   }, []);
-
-  const handleLogout = useCallback(() => {
-    clearCart();
-    logout();
-  }, [clearCart, logout]);
 
   const handleOpenCart = useCallback(() => {
     if (!user) {
@@ -57,41 +46,40 @@ function AppShell() {
     setCartOpen(true);
   }, [user]);
 
-  const handleAdd = useCallback(
-    (id: ProductId) => {
-      if (!user) {
-        setAuthGateMessage("Please log in to add items to your cart.");
-        setAuthOpen(true);
-        return;
-      }
-      addToCart(id);
-      showToast("Added to cart.");
-    },
-    [user, addToCart, showToast],
-  );
-
-  const handleCheckout = useCallback(() => {
+  const handleCheckout = useCallback(async () => {
     if (items.length === 0) {
       showToast("Your cart is empty.");
       return;
     }
-    const total = checkout();
-    setCartOpen(false);
-    showToast(
-      `Order placed. Total ${formatInr(total)}. You will receive shipping details shortly.`,
-    );
+    try {
+      const total = await checkout();
+      setCartOpen(false);
+      showToast(
+        `Order placed. Total ${formatInr(total)}. Shipping details will follow.`,
+      );
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Checkout failed");
+    }
   }, [items.length, checkout, showToast]);
 
   return (
-    <div className="app">
-      <Header
-        onOpenAuth={openAuth}
-        onOpenCart={handleOpenCart}
-        onLogout={handleLogout}
-      />
-      <Hero onBrowse={scrollToProducts} />
-      <ProductSection onAdd={handleAdd} />
-      <Footer />
+    <>
+      <Routes>
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
+        <Route
+          element={
+            <MainLayout
+              onOpenAuth={openAuth}
+              onOpenCart={handleOpenCart}
+              onAddedToCart={onAddedToCart}
+            />
+          }
+        >
+          <Route index element={<HomePage />} />
+          <Route path="shop" element={<ShopPage />} />
+          <Route path="product/:slug" element={<ProductPage />} />
+        </Route>
+      </Routes>
 
       <AuthModal
         open={authOpen}
@@ -118,7 +106,7 @@ function AppShell() {
           {toast}
         </div>
       ) : null}
-    </div>
+    </>
   );
 }
 
@@ -127,7 +115,9 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <CartProvider>
-          <AppShell />
+          <BrowserRouter>
+            <AppShell />
+          </BrowserRouter>
         </CartProvider>
       </AuthProvider>
     </ThemeProvider>

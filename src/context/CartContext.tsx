@@ -7,20 +7,20 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { Product, ProductId } from "../data/products";
-import { products } from "../data/products";
+import type { ApiProduct } from "../types/product";
+import { placeOrder } from "../api/shop";
 import { useAuth } from "./AuthContext";
 
-export type CartItem = Product & { quantity: number };
+export type CartItem = ApiProduct & { quantity: number };
 
 type CartContextValue = {
   items: CartItem[];
   itemCount: number;
-  addToCart: (productId: ProductId) => void;
-  removeFromCart: (productId: ProductId) => void;
-  updateQuantity: (productId: ProductId, delta: number) => void;
+  addToCart: (product: ApiProduct) => void;
+  removeFromCart: (productId: string) => void;
+  updateQuantity: (productId: string, delta: number) => void;
   clearCart: () => void;
-  checkout: () => number;
+  checkout: () => Promise<number>;
   subtotal: number;
 };
 
@@ -65,15 +65,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 
   const addToCart = useCallback(
-    (productId: ProductId) => {
-      const product = products.find((p) => p.id === productId);
-      if (!product || !user) return;
+    (product: ApiProduct) => {
+      if (!user) return;
       setItems((prev) => {
-        const existing = prev.find((i) => i.id === productId);
+        const existing = prev.find((i) => i.id === product.id);
         let next: CartItem[];
         if (existing) {
           next = prev.map((i) =>
-            i.id === productId ? { ...i, quantity: i.quantity + 1 } : i,
+            i.id === product.id ? { ...i, quantity: i.quantity + 1 } : i,
           );
         } else {
           next = [...prev, { ...product, quantity: 1 }];
@@ -86,7 +85,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 
   const removeFromCart = useCallback(
-    (productId: ProductId) => {
+    (productId: string) => {
       setItems((prev) => {
         const next = prev.filter((i) => i.id !== productId);
         persist(next);
@@ -97,7 +96,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 
   const updateQuantity = useCallback(
-    (productId: ProductId, delta: number) => {
+    (productId: string, delta: number) => {
       setItems((prev) => {
         const item = prev.find((i) => i.id === productId);
         if (!item) return prev;
@@ -122,11 +121,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (user) localStorage.removeItem(cartKey(user.email));
   }, [user]);
 
-  const checkout = useCallback(() => {
-    const total = items.reduce((s, i) => s + i.price * i.quantity, 0);
+  const checkout = useCallback(async () => {
+    const total = items.reduce((s, i) => s + i.priceInr * i.quantity, 0);
+    if (!user || items.length === 0) return total;
+    await placeOrder(
+      items.map((i) => ({ productId: i.id, quantity: i.quantity })),
+    );
     clearCart();
     return total;
-  }, [items, clearCart]);
+  }, [items, user, clearCart]);
 
   const itemCount = useMemo(
     () => items.reduce((s, i) => s + i.quantity, 0),
@@ -134,7 +137,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   );
 
   const subtotal = useMemo(
-    () => items.reduce((s, i) => s + i.price * i.quantity, 0),
+    () => items.reduce((s, i) => s + i.priceInr * i.quantity, 0),
     [items],
   );
 
