@@ -1,6 +1,5 @@
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import passport from "passport";
@@ -9,15 +8,18 @@ import { randomUUID } from "node:crypto";
 import neo4j from "neo4j-driver";
 import { driver, session, verifyConnectivity } from "./db.js";
 
-dotenv.config({ path: new URL("../.env", import.meta.url) });
-
 function trimUrl(u) {
   return String(u || "").replace(/\/$/, "");
 }
 
 const PORT = Number(process.env.PORT) || 4000;
 const JWT_SECRET = process.env.JWT_SECRET || "dev-insecure-change-me";
-const FRONTEND_ORIGIN = trimUrl(process.env.FRONTEND_URL || "http://localhost:5173");
+const ALLOWED_ORIGINS = String(
+  process.env.FRONTEND_URL || "http://localhost:5173",
+)
+  .split(",")
+  .map((s) => trimUrl(s.trim()))
+  .filter(Boolean);
 const API_PUBLIC_URL = trimUrl(
   process.env.API_PUBLIC_URL || `http://localhost:${PORT}`,
 );
@@ -25,7 +27,12 @@ const API_PUBLIC_URL = trimUrl(
 const app = express();
 app.use(
   cors({
-    origin: FRONTEND_ORIGIN,
+    origin(origin, cb) {
+      if (!origin) return cb(null, true);
+      const o = trimUrl(origin);
+      if (ALLOWED_ORIGINS.includes(o)) return cb(null, true);
+      cb(null, false);
+    },
     credentials: true,
   }),
 );
@@ -129,13 +136,22 @@ async function ensureGoogleStrategy() {
 
 const googleReady = await ensureGoogleStrategy();
 
-app.get("/api/health", async (_req, res) => {
+/** Liveness only — always 200 so Railway/proxies do not mark the service down when Neo4j is misconfigured. */
+app.get("/api/health", (_req, res) => {
+  res.json({ ok: true });
+});
+
+app.get("/api/health/neo4j", async (_req, res) => {
   try {
     await verifyConnectivity();
     res.json({ ok: true, neo4j: "connected" });
   } catch (e) {
     res.status(503).json({ ok: false, error: String(e?.message || e) });
   }
+});
+
+app.get("/", (_req, res) => {
+  res.json({ ok: true, service: "soundwave-api" });
 });
 
 app.post("/api/auth/register", async (req, res) => {
