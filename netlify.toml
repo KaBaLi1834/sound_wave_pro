@@ -1,0 +1,9 @@
+# Netlify must deploy the Vite output folder, not the repo root.
+# Root index.html references /src/main.tsx (dev only); production bundles live in dist/.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
