@@ -3,7 +3,7 @@
  * Run: cd server && npm install && cp .env.example .env && npm run seed
  */
 import { randomInt, randomUUID } from "node:crypto";
-import { session } from "./db.js";
+import { neo4jConnectionSummary, session, verifyConnectivity } from "./db.js";
 
 const CATEGORY_PLANS = [
   { category: "EARPODS", sub: "True Wireless", count: 12 },
@@ -76,6 +76,7 @@ function buildProducts() {
 }
 
 async function run() {
+  await verifyConnectivity();
   const s = session();
   const products = buildProducts();
   if (products.length !== 40) {
@@ -219,7 +220,30 @@ async function run() {
   }
 }
 
+function printNeo4jAuthHelp(err) {
+  const msg = String(err?.message || err);
+  if (
+    !msg.includes("Unauthorized") &&
+    !msg.includes("unauthorized") &&
+    err?.code !== "Neo.ClientError.Security.Unauthorized"
+  ) {
+    return;
+  }
+  const info = neo4jConnectionSummary();
+  console.error("\n--- Neo4j authentication failed ---");
+  console.error("Using URI:", info.uri);
+  console.error("Using USER:", info.user, "(Aura must be exactly: neo4j)");
+  console.error("Password set:", info.passwordSet ? "yes" : "NO — add NEO4J_PASSWORD in server/.env");
+  console.error("\nFix checklist:");
+  console.error("1. Aura console → your instance → Reset password → copy the NEW password into NEO4J_PASSWORD=");
+  console.error("2. URI must match Aura \"Connect\" (neo4j+s://....databases.neo4j.io) — no typos.");
+  console.error("3. .env: no spaces around = ; if password has # or $ wrap in double quotes.");
+  console.error("4. Aura → Network / Access: allow your IP or 0.0.0.0/0 while testing.");
+  console.error("5. Instance must be Running (not paused).\n");
+}
+
 run().catch((e) => {
+  printNeo4jAuthHelp(e);
   console.error(e);
   process.exit(1);
 });
