@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { apiFetch, getStoredToken, setStoredToken } from "../api/client";
+import { apiFetch, getStoredToken, parseApiJsonLoose, setStoredToken } from "../api/client";
 
 export type AuthUser = {
   id: string;
@@ -83,11 +83,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
-      const data = (await res.json().catch(() => ({}))) as {
+      const data = await parseApiJsonLoose<{
         token?: string;
         user?: AuthUser;
         error?: string;
-      };
+      }>(res);
       if (!res.ok) return { ok: false as const, error: data.error || "Login failed" };
       if (!data.token || !data.user) return { ok: false as const, error: "Invalid response" };
       persist(data.user, data.token);
@@ -102,11 +102,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: "POST",
         body: JSON.stringify({ email, password, name }),
       });
-      const data = (await res.json().catch(() => ({}))) as {
+      const data = await parseApiJsonLoose<{
         token?: string;
         user?: AuthUser;
         error?: string;
-      };
+      }>(res);
       if (!res.ok) return { ok: false as const, error: data.error || "Sign up failed" };
       if (!data.token || !data.user) return { ok: false as const, error: "Invalid response" };
       persist(data.user, data.token);

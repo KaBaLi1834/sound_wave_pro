@@ -1,5 +1,5 @@
 import type { ApiProduct, ApiProductWithWeight, ApiReview } from "../types/product";
-import { apiFetch } from "./client";
+import { apiFetch, parseApiJson, parseApiJsonLoose } from "./client";
 
 export async function fetchProducts(params: {
   category?: string;
@@ -14,21 +14,21 @@ export async function fetchProducts(params: {
   if (params.sort) q.set("sort", params.sort);
   const res = await apiFetch(`/api/products?${q.toString()}`);
   if (!res.ok) throw new Error("Failed to load products");
-  const data = (await res.json()) as { products: ApiProduct[] };
+  const data = await parseApiJson<{ products: ApiProduct[] }>(res);
   return data.products;
 }
 
 export async function fetchBestsellers(limit = 8): Promise<ApiProduct[]> {
   const res = await apiFetch(`/api/products/bestsellers?limit=${limit}`);
   if (!res.ok) throw new Error("Failed to load bestsellers");
-  const data = (await res.json()) as { products: ApiProduct[] };
+  const data = await parseApiJson<{ products: ApiProduct[] }>(res);
   return data.products;
 }
 
 export async function fetchProduct(slug: string): Promise<ApiProduct> {
   const res = await apiFetch(`/api/products/${encodeURIComponent(slug)}`);
   if (!res.ok) throw new Error("Not found");
-  const data = (await res.json()) as { product: ApiProduct };
+  const data = await parseApiJson<{ product: ApiProduct }>(res);
   return data.product;
 }
 
@@ -40,7 +40,7 @@ export async function fetchFrequentlyBoughtTogether(
     `/api/products/${encodeURIComponent(slug)}/frequently-bought-together?limit=${limit}`,
   );
   if (!res.ok) throw new Error("Failed to load recommendations");
-  const data = (await res.json()) as { products: ApiProductWithWeight[] };
+  const data = await parseApiJson<{ products: ApiProductWithWeight[] }>(res);
   return data.products;
 }
 
@@ -49,7 +49,7 @@ export async function fetchReviews(slug: string): Promise<ApiReview[]> {
     `/api/products/${encodeURIComponent(slug)}/reviews`,
   );
   if (!res.ok) throw new Error("Failed to load reviews");
-  const data = (await res.json()) as { reviews: ApiReview[] };
+  const data = await parseApiJson<{ reviews: ApiReview[] }>(res);
   return data.reviews;
 }
 
@@ -65,7 +65,7 @@ export async function postReview(
     },
   );
   if (!res.ok) {
-    const err = (await res.json().catch(() => ({}))) as { error?: string };
+    const err = await parseApiJsonLoose<{ error?: string }>(res);
     throw new Error(err.error || "Review failed");
   }
 }
@@ -76,14 +76,14 @@ export async function searchProducts(q: string): Promise<ApiProduct[]> {
     `/api/search?q=${encodeURIComponent(q.trim())}`,
   );
   if (!res.ok) throw new Error("Search failed");
-  const data = (await res.json()) as { products: ApiProduct[] };
+  const data = await parseApiJson<{ products: ApiProduct[] }>(res);
   return data.products;
 }
 
 export async function fetchCategories(): Promise<string[]> {
   const res = await apiFetch("/api/meta/categories");
   if (!res.ok) throw new Error("Failed to load categories");
-  const data = (await res.json()) as { categories: string[] };
+  const data = await parseApiJson<{ categories: string[] }>(res);
   return data.categories;
 }
 
@@ -103,16 +103,16 @@ export async function fetchRecentTerms(sessionId: string): Promise<string[]> {
     `/api/search/recent?sessionId=${encodeURIComponent(sessionId)}`,
   );
   if (!res.ok) return [];
-  const data = (await res.json()) as { terms: string[] };
+  const data = await parseApiJson<{ terms: string[] }>(res);
   return data.terms;
 }
 
 export async function fetchTrending(): Promise<{ term: string; count: number }[]> {
   const res = await apiFetch("/api/search/trending");
   if (!res.ok) return [];
-  const data = (await res.json()) as {
+  const data = await parseApiJson<{
     trending: { term: string; count: number }[];
-  };
+  }>(res);
   return data.trending;
 }
 
@@ -122,8 +122,8 @@ export async function placeOrder(items: { productId: string; quantity: number }[
     body: JSON.stringify({ items }),
   });
   if (!res.ok) {
-    const err = (await res.json().catch(() => ({}))) as { error?: string };
+    const err = await parseApiJsonLoose<{ error?: string }>(res);
     throw new Error(err.error || "Order failed");
   }
-  return (await res.json()) as { orderId: string; totalInr: number };
+  return await parseApiJson<{ orderId: string; totalInr: number }>(res);
 }

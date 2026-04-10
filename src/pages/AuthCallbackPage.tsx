@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { apiFetch, setStoredToken } from "../api/client";
+import { apiFetch, parseApiJson, setStoredToken } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
 export function AuthCallbackPage() {
@@ -26,9 +26,14 @@ export function AuthCallbackPage() {
         navigate("/", { replace: true });
         return;
       }
-      const data = (await res.json()) as {
-        user: { id: string; email: string; name: string };
-      };
+      type MePayload = { user: { id: string; email: string; name: string } };
+      let data: MePayload;
+      try {
+        data = await parseApiJson<MePayload>(res);
+      } catch {
+        navigate("/", { replace: true });
+        return;
+      }
       setSession(data.user, token);
       navigate("/", { replace: true });
     })();

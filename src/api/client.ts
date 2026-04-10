@@ -47,6 +47,34 @@ export async function apiFetch(
   return fetch(url, { ...init, headers });
 }
 
+/** Parse JSON body; avoids SyntaxError when the server returns HTML (e.g. SPA fallback or proxy miss). */
+export async function parseApiJson<T>(res: Response): Promise<T> {
+  const text = await res.text();
+  const trimmed = text.trimStart();
+  if (trimmed.startsWith("<")) {
+    throw new Error("Unexpected response from server");
+  }
+  if (text.trim() === "") {
+    return {} as T;
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error("Invalid response from server");
+  }
+}
+
+/** Like parseApiJson but returns {} if the body is not JSON (e.g. HTML error page). */
+export async function parseApiJsonLoose<T extends object = Record<string, unknown>>(
+  res: Response,
+): Promise<T> {
+  try {
+    return await parseApiJson<T>(res);
+  } catch {
+    return {} as T;
+  }
+}
+
 export function googleAuthUrl(): string {
   const origin = getApiOrigin();
   const base = origin || "http://localhost:4000";

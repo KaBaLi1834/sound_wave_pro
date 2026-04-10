@@ -98,10 +98,6 @@ export function AuthModal({
         <button type="button" className="btn btn-ghost google-btn" onClick={startGoogle}>
           Continue with Google
         </button>
-        <p className="form-hint">
-          Google sign-in uses your API server. Ensure Google redirect URI matches
-          your Railway API URL.
-        </p>
 
         <form onSubmit={onSubmitEmail}>
           <div className="form-field">
