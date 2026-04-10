@@ -3,7 +3,12 @@
  * Run: cd server && npm install && cp .env.example .env && npm run seed
  */
 import { randomInt, randomUUID } from "node:crypto";
-import { neo4jConnectionSummary, session, verifyConnectivity } from "./db.js";
+import {
+  neo4jConnectionSummary,
+  resolveGraphDatabaseName,
+  session,
+  verifyConnectivity,
+} from "./db.js";
 
 const CATEGORY_PLANS = [
   { category: "EARPODS", sub: "True Wireless", count: 12 },
@@ -217,7 +222,15 @@ async function run() {
       }
     });
 
+    const currentDb = await resolveGraphDatabaseName(s);
+
     console.log(`Seeded ${products.length} products, co-purchase edges, reviews, and search stats.`);
+    if (currentDb != null) {
+      const safe = String(currentDb).replace(/`/g, "``");
+      console.log(
+        `Neo4j Browser: select database "${currentDb}" (or :use \`${safe}\`), then MATCH (n) RETURN count(n). On Aura the home graph is often the instance id, not "neo4j" — wrong DB shows 0 nodes.`,
+      );
+    }
   } finally {
     await s.close();
   }

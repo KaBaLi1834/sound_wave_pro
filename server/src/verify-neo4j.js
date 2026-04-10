@@ -2,7 +2,7 @@
  * Quick check: loads server/.env and tries to connect to Neo4j.
  * Run: cd server && npm run verify-neo4j
  */
-import { driver, neo4jConnectionSummary, session } from "./db.js";
+import { driver, neo4jConnectionSummary, resolveGraphDatabaseName, session } from "./db.js";
 
 const info = neo4jConnectionSummary();
 console.log("Env file:", info.envFile);
@@ -24,6 +24,10 @@ try {
   const s = session();
   try {
     await s.run("RETURN 1 AS ok");
+    const graphName = await resolveGraphDatabaseName(s);
+    if (graphName != null) {
+      console.log(`Home graph database (select this in Browser): "${graphName}"`);
+    }
   } finally {
     await s.close();
   }
