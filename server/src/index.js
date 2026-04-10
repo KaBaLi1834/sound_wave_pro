@@ -26,14 +26,25 @@ const API_PUBLIC_URL = trimUrl(
   process.env.API_PUBLIC_URL || `http://localhost:${PORT}`,
 );
 
+if (ALLOWED_ORIGINS.length > 0) {
+  console.log(`[api] CORS allowed origins: ${JSON.stringify(ALLOWED_ORIGINS)}`);
+} else {
+  console.warn("[api] CORS: No origins allowed. Check FRONTEND_URL env var.");
+}
+
 const app = express();
 app.use(
   cors({
     origin(origin, cb) {
       if (!origin) return cb(null, true);
       const o = trimUrl(origin);
-      if (ALLOWED_ORIGINS.includes(o)) return cb(null, true);
-      cb(null, false);
+      const allowed = ALLOWED_ORIGINS.includes(o);
+      if (!allowed) {
+        console.warn(
+          `[cors] Blocked origin: "${origin}" (trimmed: "${o}"). Allowed origins: ${JSON.stringify(ALLOWED_ORIGINS)}`,
+        );
+      }
+      cb(null, allowed);
     },
     credentials: true,
   }),
